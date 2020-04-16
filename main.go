@@ -113,16 +113,17 @@ func startStreaming(offer webrtc.SessionDescription, frames *broadcast, flightDa
 	// since they won't be able to decode anything we send them
 	var payloadType uint8
 	for _, videoCodec := range mediaEngine.GetCodecsByKind(webrtc.RTPCodecTypeVideo) {
+		fmt.Println(videoCodec)
 		if videoCodec.Name == "H264" {
 			payloadType = videoCodec.PayloadType
 			break
 		}
 	}
-	if payloadType != 126 {
-		fmt.Println("Video might not work... (codec issue)")
-	}
 	if payloadType == 0 {
 		return nil, fmt.Errorf("Remote peer does not support H264")
+	}
+	if payloadType != 126 {
+		fmt.Println("Video might not work... (codec issue)")
 	}
 
 	// Create a new RTCPeerConnection
@@ -156,7 +157,7 @@ func startStreaming(offer webrtc.SessionDescription, frames *broadcast, flightDa
 			ch := make(chan []byte)
 			removeListener = frames.Listen(ch)
 			for frame := range ch {
-				if err = videoTrack.WriteSample(media.Sample{Data: frame, Samples: 90000}); err != nil {
+				if err = videoTrack.WriteSample(media.Sample{Data: frame, Samples: 1}); err != nil {
 					fmt.Println(err)
 				}
 			}

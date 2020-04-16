@@ -53,7 +53,6 @@ func (t Tello) startVideo() {
 	})
 
 	var buf []byte
-
 	drone.On(tello.VideoFrameEvent, func(data interface{}) {
 		b := data.([]byte)
 		if len(buf) > 0 && b[0] == 0 && b[1] == 0 && b[2] == 0 && b[3] == 1 {

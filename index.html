@@ -1,0 +1,98 @@
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tello WebRTC</title>
+</head>
+
+<body>
+    <div id="remoteVideos"></div> <br />
+
+    AZEQSD / Home / End<br />
+    <div id="div"></div>
+
+
+    <script>
+        /* eslint-env browser */
+
+        let pc = new RTCPeerConnection()
+        let log = msg => {
+            document.getElementById('div').innerHTML += msg + '<br>'
+        }
+
+        pc.ontrack = function (event) {
+            var el = document.createElement(event.track.kind)
+            el.srcObject = event.streams[0]
+            el.autoplay = true
+            el.controls = true
+
+            document.getElementById('remoteVideos').appendChild(el)
+        }
+
+        pc.oniceconnectionstatechange = e => log(pc.iceConnectionState)
+        pc.onicecandidate = event => {
+            if (event.candidate === null) {
+                var oReq = new XMLHttpRequest();
+                oReq.addEventListener("load", function reqListener() {
+                    pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(this.responseText)))
+                });
+                oReq.open("GET", "/session?offer=" + encodeURIComponent(JSON.stringify(pc.localDescription)));
+                oReq.send();
+            }
+        }
+
+        // Offer to receive 1 audio, and 2 video tracks
+        pc.addTransceiver('video', { 'direction': 'sendrecv' })
+
+        // add data channel
+        let sendChannel = pc.createDataChannel('pilot')
+        sendChannel.onclose = () => console.log('sendChannel has closed')
+        sendChannel.onopen = () => console.log('sendChannel has opened')
+        sendChannel.onmessage = e => log(`Message from DataChannel '${sendChannel.label}' payload '${e.data}'`)
+
+        // createOffer
+        pc.createOffer().then(d => pc.setLocalDescription(d)).catch(log)
+
+        let controls = {
+            "a": "-clock",
+            "e": "+clock",
+
+            "s": "-forwa",
+            "z": "+forwa",
+
+            "q": "-right",
+            "d": "+right",
+
+            "PageUp": "+up",
+            "PageDown": "-up",
+
+            "Home": "=takeoff",
+            "End": "=land",
+        }
+        document.addEventListener('keyup', function (event) {
+            let e = controls[event.key];
+            if (!e) {
+                return
+            }
+
+            event.preventDefault()
+            if (e.substr(0, 1) != "=") {
+                sendChannel.send("=hover")
+            }
+        });
+
+        document.addEventListener('keydown', function (event) {
+            let e = controls[event.key];
+            if (!e) {
+                console.log(event.key);
+                return
+            }
+            event.preventDefault()
+            sendChannel.send(e)
+        });
+
+    </script>
+</body>
+
+</html>

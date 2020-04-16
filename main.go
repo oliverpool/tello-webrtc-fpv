@@ -15,6 +15,7 @@ import (
 
 type Drone interface {
 	Frames() <-chan []byte
+	FlightData() <-chan FlightData
 	Forward(int) error
 	Clockwise(int) error
 	Right(int) error
@@ -22,6 +23,11 @@ type Drone interface {
 	Hover()
 	TakeOff() error
 	Land() error
+}
+
+type FlightData struct {
+	Height            int
+	BatteryPercentage int
 }
 
 func main() {
@@ -47,7 +53,7 @@ func run() error {
 	if os.Getenv("MOCK") != "" {
 		drone, err = NewMock("shootage.mp4")
 	} else {
-		drone = NewTello()
+		drone, err = NewTello()
 	}
 
 	if err != nil {
@@ -69,6 +75,9 @@ func startSession(drone Drone) http.HandlerFunc {
 	frames := &broadcast{}
 	go frames.Forward(drone.Frames())
 
+	flightData := &broadcast{}
+	go flightData.ForwardFlightData(drone.FlightData())
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		param := r.FormValue("offer")
 		offer := webrtc.SessionDescription{}
@@ -79,7 +88,7 @@ func startSession(drone Drone) http.HandlerFunc {
 			return
 		}
 
-		answer, err := startStreaming(offer, frames, drone)
+		answer, err := startStreaming(offer, frames, flightData, drone)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -91,7 +100,7 @@ func startSession(drone Drone) http.HandlerFunc {
 	}
 }
 
-func startStreaming(offer webrtc.SessionDescription, frames *broadcast, drone Drone) (*webrtc.SessionDescription, error) {
+func startStreaming(offer webrtc.SessionDescription, frames *broadcast, flightData *broadcast, drone Drone) (*webrtc.SessionDescription, error) {
 	// We make our own mediaEngine so we can place the sender's codecs in it.  This because we must use the
 	// dynamic media type from the sender in our answer. This is not required if we are the offerer
 	mediaEngine := webrtc.MediaEngine{}
@@ -186,6 +195,14 @@ func startStreaming(offer webrtc.SessionDescription, frames *broadcast, drone Dr
 				drone.Land()
 			default:
 				fmt.Println("unknown command", string(b), factor)
+			}
+		})
+
+		d.OnOpen(func() {
+			ch := make(chan []byte)
+			_ = flightData.Listen(ch)
+			for fd := range ch {
+				d.Send(fd)
 			}
 		})
 	})

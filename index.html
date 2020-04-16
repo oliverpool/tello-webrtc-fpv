@@ -9,6 +9,8 @@
 <body>
     <div id="remoteVideos"></div> <br />
 
+    Battery: <span id="BatteryPercentage"></span>%<br>
+    Height: <span id="Height"></span><br><br>
     AZEQSD / Home / End<br />
     <div id="div"></div>
 
@@ -49,20 +51,29 @@
         let sendChannel = pc.createDataChannel('pilot')
         sendChannel.onclose = () => console.log('sendChannel has closed')
         sendChannel.onopen = () => console.log('sendChannel has opened')
-        sendChannel.onmessage = e => log(`Message from DataChannel '${sendChannel.label}' payload '${e.data}'`)
+        sendChannel.onmessage = (e) => {
+            e.data.text().then(JSON.parse).then(({ Height, BatteryPercentage }) => {
+                document.getElementById('Height').innerText = Height;
+                document.getElementById('BatteryPercentage').innerText = BatteryPercentage;
+            }).catch((err) => {
+                console.log(err);
+                log(`Message from DataChannel '${sendChannel.label}' payload '${e.data}'`)
+            });
+
+        }
 
         // createOffer
         pc.createOffer().then(d => pc.setLocalDescription(d)).catch(log)
 
         let controls = {
-            "a": "-clock",
-            "e": "+clock",
+            "KeyQ": "-clock",
+            "KeyE": "+clock",
 
-            "s": "-forwa",
-            "z": "+forwa",
+            "KeyS": "-forwa",
+            "KeyW": "+forwa",
 
-            "q": "-right",
-            "d": "+right",
+            "KeyA": "-right",
+            "KeyD": "+right",
 
             "PageUp": "+up",
             "PageDown": "-up",
@@ -71,7 +82,7 @@
             "End": "=land",
         }
         document.addEventListener('keyup', function (event) {
-            let e = controls[event.key];
+            let e = controls[event.code];
             if (!e) {
                 return
             }
@@ -83,9 +94,9 @@
         });
 
         document.addEventListener('keydown', function (event) {
-            let e = controls[event.key];
+            let e = controls[event.code];
             if (!e) {
-                console.log(event.key);
+                console.log(event.code);
                 return
             }
             event.preventDefault()

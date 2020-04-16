@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"sync"
 )
 
@@ -39,8 +41,19 @@ func (b *broadcast) forward(buf []byte) {
 	defer b.lock.Unlock()
 	for _, l := range b.listeners {
 		select {
-		case l <- buf:
+		case l <- buf: // slow readers are skipped
 		default:
 		}
+	}
+}
+
+func (b *broadcast) ForwardFlightData(ch <-chan FlightData) {
+	for fd := range ch {
+		buf, err := json.Marshal(fd)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		b.forward(buf)
 	}
 }

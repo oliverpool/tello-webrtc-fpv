@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"time"
 
 	"gopkg.in/metakeule/loop.v4"
@@ -56,6 +57,20 @@ func (d DroneMock) TakeOff() error {
 func (d DroneMock) Land() error {
 	fmt.Println("Land")
 	return nil
+}
+
+func (d DroneMock) FlightData() <-chan FlightData {
+	ch := make(chan FlightData)
+
+	go func() {
+		for range time.NewTicker(time.Second).C {
+			ch <- FlightData{
+				BatteryPercentage: rand.Intn(100),
+				Height:            rand.Intn(10),
+			}
+		}
+	}()
+	return ch
 }
 
 func (d DroneMock) Frames() <-chan []byte {

@@ -10,15 +10,17 @@ import (
 
 type Tello struct {
 	*tello.Driver
-	frames chan []byte
+	frames     chan []byte
+	flightdata chan FlightData
 }
 
-func NewTello() Tello {
+func NewTello() (Tello, error) {
 	drone := tello.NewDriver("8890")
 
 	t := Tello{
-		Driver: drone,
-		frames: make(chan []byte),
+		Driver:     drone,
+		flightdata: make(chan FlightData),
+		frames:     make(chan []byte),
 	}
 
 	robot := gobot.NewRobot("tello",
@@ -27,12 +29,15 @@ func NewTello() Tello {
 		t.startVideo,
 	)
 
-	robot.Start(false)
-	return t
+	return t, robot.Start(false)
 }
 
 func (t Tello) Frames() <-chan []byte {
 	return t.frames
+}
+
+func (t Tello) FlightData() <-chan FlightData {
+	return t.flightdata
 }
 
 func (t Tello) startVideo() {
@@ -59,12 +64,17 @@ func (t Tello) startVideo() {
 		}
 	})
 
+	var previousFlightData FlightData
 	drone.On(tello.FlightDataEvent, func(data interface{}) {
-		flightData := data.(*tello.FlightData)
-		fmt.Println("Height:", flightData.Height)
-		fmt.Println("BatteryPercentage:", flightData.BatteryPercentage)
-		fmt.Println("BatteryPercentage:", flightData.DroneBatteryLeft)
-		fmt.Println("AirSpeed:", flightData.AirSpeed())
-		fmt.Println("GroundSpeed:", flightData.GroundSpeed())
+		allData := data.(*tello.FlightData)
+		flightData := FlightData{
+			Height:            int(allData.Height),
+			BatteryPercentage: int(allData.BatteryPercentage),
+		}
+		if previousFlightData != flightData {
+			t.flightdata <- flightData
+			previousFlightData = flightData
+		}
+
 	})
 }

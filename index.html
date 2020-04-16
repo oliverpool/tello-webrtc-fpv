@@ -17,8 +17,9 @@
 
     <script>
         /* eslint-env browser */
+        const configuration = { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
 
-        let pc = new RTCPeerConnection()
+        let pc = new RTCPeerConnection(configuration)
         let log = msg => {
             document.getElementById('div').innerHTML += msg + '<br>'
         }

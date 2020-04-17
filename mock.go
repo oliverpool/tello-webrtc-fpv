@@ -110,3 +110,27 @@ func ScanFrames(data []byte, atEOF bool) (advance int, token []byte, err error) 
 	}
 	return 0, nil, nil
 }
+
+// To do some tests with a file encoded as to split the frames coming from the drone
+// Those frames are not h264 aligned.
+// func (d DroneMock) startVideo() error {
+// 	var l uint64
+// 	var frame []byte
+// 	for {
+// 		binary.Read(d.video, binary.LittleEndian, &l)
+// 		buf := make([]byte, l)
+// 		n, _ := d.video.Read(buf)
+
+// 		if len(frame) > 0 && len(buf) > 3 && buf[0] == 0 && buf[1] == 0 && buf[2] == 0 && buf[3] == 1 {
+// 			select {
+// 			case d.frames <- frame:
+// 			case <-time.After(d.sleep):
+// 			}
+// 			time.Sleep(d.sleep)
+// 			frame = buf[:n]
+// 		} else {
+// 			frame = append(frame, buf[:n]...)
+// 		}
+
+// 	}
+// }

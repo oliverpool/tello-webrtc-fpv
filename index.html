@@ -50,17 +50,16 @@
 
         // add data channel
         let sendChannel = pc.createDataChannel('pilot')
+        sendChannel.binaryType = "arraybuffer";
         sendChannel.onclose = () => console.log('sendChannel has closed')
         sendChannel.onopen = () => console.log('sendChannel has opened')
         sendChannel.onmessage = (e) => {
-            e.data.text().then(JSON.parse).then(({ Height, BatteryPercentage }) => {
-                document.getElementById('Height').innerText = Height;
-                document.getElementById('BatteryPercentage').innerText = BatteryPercentage;
-            }).catch((err) => {
-                console.log(err);
-                log(`Message from DataChannel '${sendChannel.label}' payload '${e.data}'`)
-            });
+            let dataView = new DataView(e.data);
+            let decoder = new TextDecoder('utf8');
+            let { Height, BatteryPercentage } = JSON.parse(decoder.decode(dataView));
 
+            document.getElementById('Height').innerText = Height;
+            document.getElementById('BatteryPercentage').innerText = BatteryPercentage;
         }
 
         // createOffer

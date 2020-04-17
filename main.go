@@ -90,6 +90,7 @@ func startSession(drone Drone) http.HandlerFunc {
 
 		answer, err := startStreaming(offer, frames, flightData, drone)
 		if err != nil {
+			fmt.Println("error", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

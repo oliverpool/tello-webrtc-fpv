@@ -23,11 +23,12 @@ func NewMock(filepath string) (*DroneMock, error) {
 		return nil, err
 	}
 	d := &DroneMock{
-		video:  loop.New(buf),
-		sleep:  30 * time.Millisecond,
+		video: loop.New(buf),
+		sleep: 40 * time.Millisecond,
+		// sleep:  30 * time.Millisecond,
 		frames: make(chan []byte, 1),
 	}
-	go d.startVideo()
+	go d.startVideo2()
 	return d, nil
 }
 
@@ -89,6 +90,35 @@ func (d DroneMock) startVideo() error {
 	}
 	return scanner.Err()
 }
+func (d DroneMock) startVideo2() error {
+	scanner := bufio.NewScanner(d.video)
+	scanner.Split(ScanFrames)
+
+	var buf []byte
+	var units int
+	for scanner.Scan() {
+		b := scanner.Bytes()
+		if len(b) < 5 {
+			buf = append(buf, b...)
+			continue
+		}
+		nal_unit_type := b[4] & 0b11111
+		if nal_unit_type <= 5 {
+			units++
+		}
+
+		// 5: best for safari ios
+		if nal_unit_type == 5 && len(buf) > 0 {
+			d.frames <- buf
+			time.Sleep(time.Duration(units) * d.sleep)
+			units = 0
+			buf = append(buf[:0], b...)
+		} else {
+			buf = append(buf, b...)
+		}
+	}
+	return scanner.Err()
+}
 
 // ScanFrames splits the buffer into h264 frames
 // Which start with 0x00 00 01 according to https://dsp.stackexchange.com/a/27297
@@ -97,9 +127,9 @@ func ScanFrames(data []byte, atEOF bool) (advance int, token []byte, err error) 
 	for i := 3; i < len(data); i++ {
 		if data[i] == 0x00 {
 			zeros++
-		} else if data[i] == 0x01 && zeros >= 2 {
+		} else if data[i] == 0x01 && zeros >= 3 {
 			//end of frame
-			return i - 2, data[:i-2], nil
+			return i - 3, data[:i-3], nil
 		} else {
 			zeros = 0
 		}

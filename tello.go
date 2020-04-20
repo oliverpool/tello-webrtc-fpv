@@ -52,11 +52,16 @@ func (t Tello) startVideo() {
 		})
 	})
 
+	firstNalUnit := byte(7)
 	var buf []byte
 	drone.On(tello.VideoFrameEvent, func(data interface{}) {
 		b := data.([]byte)
 		// https://stackoverflow.com/a/38095609
-		if len(buf) > 0 && len(b) > 3 && b[0] == 0 && b[1] == 0 && b[2] == 0 && b[3] == 1 {
+		// we get some buffer
+		// check that this is a NAL unit (begins with 0001)
+		// and check that the unit is of type 7 (thank youn https://yumichan.net/video-processing/video-compression/introduction-to-h264-nal-unit/)
+		if len(buf) > 0 && len(b) >= 5 && b[0] == 0 && b[1] == 0 && b[2] == 0 && b[3] == 1 && b[4]&0b11111 == firstNalUnit {
+
 			t.frames <- buf
 			buf = b
 		} else {

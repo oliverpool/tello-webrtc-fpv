@@ -79,6 +79,7 @@ func startSession(drone Drone) http.HandlerFunc {
 	go flightData.ForwardFlightData(drone.FlightData())
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println(r.Header.Get("User-Agent"))
 		param := r.FormValue("offer")
 		offer := webrtc.SessionDescription{}
 
@@ -110,11 +111,14 @@ func startStreaming(offer webrtc.SessionDescription, frames *broadcast, flightDa
 		return nil, err
 	}
 
+	for _, videoCodec := range mediaEngine.GetCodecsByKind(webrtc.RTPCodecTypeVideo) {
+		fmt.Println(videoCodec)
+	}
+
 	// Search for H264 Payload type. If the offer doesn't support H264 exit since
 	// since they won't be able to decode anything we send them
 	var payloadType uint8
 	for _, videoCodec := range mediaEngine.GetCodecsByKind(webrtc.RTPCodecTypeVideo) {
-		fmt.Println(videoCodec)
 		if videoCodec.Name == "H264" {
 			payloadType = videoCodec.PayloadType
 			break
@@ -124,7 +128,7 @@ func startStreaming(offer webrtc.SessionDescription, frames *broadcast, flightDa
 		return nil, fmt.Errorf("Remote peer does not support H264")
 	}
 	if payloadType != 126 {
-		fmt.Println("Video might not work... (codec issue)")
+		fmt.Println("Video might not work with codec", payloadType)
 	}
 
 	// Create a new RTCPeerConnection

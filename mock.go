@@ -95,23 +95,17 @@ func (d DroneMock) startVideo2() error {
 	scanner.Split(ScanFrames)
 
 	var buf []byte
-	var units int
 	for scanner.Scan() {
 		b := scanner.Bytes()
 		if len(b) < 5 {
 			buf = append(buf, b...)
 			continue
 		}
-		nal_unit_type := b[4] & 0b11111
-		if nal_unit_type <= 5 {
-			units++
-		}
 
-		// 5: best for safari ios
-		if nal_unit_type == 5 && len(buf) > 0 {
+		nal_unit_type := b[4] & 0b11111
+		if (nal_unit_type == 7 || nal_unit_type == 1) && len(buf) > 0 {
 			d.frames <- buf
-			time.Sleep(time.Duration(units) * d.sleep)
-			units = 0
+			time.Sleep(d.sleep)
 			buf = append(buf[:0], b...)
 		} else {
 			buf = append(buf, b...)

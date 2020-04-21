@@ -51,7 +51,7 @@ func run() error {
 	var err error
 
 	if os.Getenv("MOCK") != "" {
-		drone, err = NewMock("footage.mp4")
+		drone, err = NewMock("recorded.h264")
 	} else {
 		drone, err = NewTello()
 	}

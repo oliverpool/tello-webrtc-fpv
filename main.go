@@ -205,7 +205,7 @@ func startStreaming(offer webrtc.SessionDescription, frames *broadcast, flightDa
 		})
 
 		d.OnOpen(func() {
-			ch := make(chan []byte)
+			ch := make(chan []byte, 1)
 			_ = flightData.Listen(ch)
 			for fd := range ch {
 				d.Send(fd)

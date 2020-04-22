@@ -3,17 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tello WebRTC</title>
+    <title>Gobot-Pion</title>
+    <link href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css" rel="stylesheet">
 </head>
 
-<body>
-    <div id="remoteVideos"></div> <br />
+<body class="text-center bg-gray-800 min-h-screen flex flex-col">
+    <div class="flex-auto flex justify-center max-h-screen">
+        <div class="flex-shrink-0 flex flex-col">
+            <div class="transition-all duration-200" style="flex-grow: 1" id="heightBarGone"></div>
+            <div class="mx-8 w-8 transition-all duration-200" style="flex-grow: 0" id="heightBarRemaining">
+            </div>
+            <div class="text-white font-bold">
+                <span id="Height"></span>
+            </div>
+        </div>
+        <div id="remoteVideos" class="flex-auto flex flex-col" style="max-width: 133.334vh;">
 
-    Battery: <span id="BatteryPercentage"></span>%<br>
-    Height: <span id="Height"></span><br><br>
-    AZEQSD / Home / End<br />
-    <div id="div"></div>
+        </div>
+        <div class="flex-shrink-0 flex flex-col">
+            <div class="transition-all duration-200" style="flex-grow: 1" id="batteryBarGone"></div>
+            <div class="mx-8 w-8 transition-all duration-200" style="flex-grow: 0" id="batteryBarRemaining">
+            </div>
+            <div class="text-white font-bold">
+                <span id="BatteryPercentage"></span>%
+            </div>
+        </div>
+    </div>
 
+    <div class="hidden">
+        Battery:<br>
+        Height: <span id="Height"></span><br><br>
+        AZEQSD / Home / End<br />
+    </div>
+    <div id="div" class="hidden"></div>
 
     <script>
         /* eslint-env browser */
@@ -21,6 +43,7 @@
 
         let pc = new RTCPeerConnection(configuration)
         let log = msg => {
+            console.log(msg);
             document.getElementById('div').innerHTML += msg + '<br>'
         }
 
@@ -29,7 +52,8 @@
             el.srcObject = event.streams[0]
             el.muted = true
             el.autoplay = true
-            el.controls = true
+            el.controls = false
+            el.className = "flex-auto max-h-screen"
 
             document.getElementById('remoteVideos').appendChild(el)
         }
@@ -61,26 +85,55 @@
 
             document.getElementById('Height').innerText = Height;
             document.getElementById('BatteryPercentage').innerText = BatteryPercentage;
+            document.getElementById('BatteryPercentage').innerText = BatteryPercentage;
+            const remainingElt = document.getElementById('batteryBarRemaining')
+            remainingElt.style.flexGrow = BatteryPercentage;
+            document.getElementById('batteryBarGone').style.flexGrow = 100 - BatteryPercentage;
+
+            if (BatteryPercentage > 30) {
+                remainingElt.classList.remove("bg-orange-500", "bg-red-500");
+                remainingElt.classList.add("bg-green-500");
+            } else if (BatteryPercentage > 15) {
+                remainingElt.classList.remove("bg-green-500", "bg-red-500");
+                remainingElt.classList.add("bg-orange-500");
+            } else {
+                remainingElt.classList.remove("bg-green-500", "bg-orange-500");
+                remainingElt.classList.add("bg-red-500");
+            }
         }
 
         // createOffer
         pc.createOffer().then(d => pc.setLocalDescription(d)).catch(log)
 
         let controls = {
-            "KeyQ": "-clock",
-            "KeyE": "+clock",
+            "KeyA": "-clock",
+            "KeyD": "+clock",
 
             "KeyS": "-forwa",
             "KeyW": "+forwa",
 
-            "KeyA": "-right",
-            "KeyD": "+right",
+            "KeyQ": "-right",
+            "KeyE": "+right",
 
             "PageUp": "+up",
+            "ArrowUp": "+up",
             "PageDown": "-up",
+            "ArrowDown": "-up",
 
             "Home": "=takeoff",
+            "ArrowLeft": "=takeoff",
             "End": "=land",
+            "ArrowRight": "=land",
+        }
+        let shiftControls = {
+            "KeyS": "2flip",
+            "KeyW": "0flip",
+
+            "KeyQ": "1flip",
+            "KeyE": "3flip",
+
+            "KeyA": "1flip",
+            "KeyD": "3flip",
         }
         document.addEventListener('keyup', function (event) {
             let e = controls[event.code];
@@ -89,13 +142,14 @@
             }
 
             event.preventDefault()
-            if (e.substr(0, 1) != "=") {
+            if (e.substr(0, 1) != "=" && !event.shiftKey) {
                 sendChannel.send("=hover")
             }
         });
 
         document.addEventListener('keydown', function (event) {
-            let e = controls[event.code];
+            const currentControls = event.shiftKey ? shiftControls : controls;
+            let e = currentControls[event.code];
             if (!e) {
                 console.log(event.code);
                 return

@@ -10,12 +10,19 @@ import (
 type broadcast struct {
 	lock      sync.Mutex
 	listeners []chan<- []byte
+	lastBuf   []byte
 }
 
 func (b *broadcast) Listen(ch chan<- []byte) func() {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 	b.listeners = append(b.listeners, ch)
+	if len(b.lastBuf) > 0 {
+		select {
+		case ch <- b.lastBuf:
+		default:
+		}
+	}
 	return func() {
 		b.lock.Lock()
 		defer b.lock.Unlock()
@@ -45,6 +52,7 @@ func (b *broadcast) forward(buf []byte) {
 		default:
 		}
 	}
+	b.lastBuf = buf
 }
 
 func (b *broadcast) ForwardFlightData(ch <-chan FlightData) {

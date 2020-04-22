@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"time"
 
+	"gobot.io/x/gobot/platforms/dji/tello"
 	"gopkg.in/metakeule/loop.v4"
 )
 
@@ -48,6 +49,12 @@ func (d DroneMock) Up(v int) error {
 	fmt.Println("Up", v)
 	return nil
 }
+
+func (d DroneMock) Flip(v tello.FlipType) error {
+	fmt.Println("Flip", v)
+	return nil
+}
+
 func (d DroneMock) Hover() {
 	fmt.Println("Hover")
 }

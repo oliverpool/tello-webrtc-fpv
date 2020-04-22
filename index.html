@@ -14,7 +14,7 @@
       <div class="flex-shrink-0 flex flex-col">
         <h3 class="text-white font-bold text-xl mt-4">Steuerung</h3>
         <div
-          class="grid grid-cols-3 gap-1 my-4 mr-1 font-bold leading-none text-lg"
+          class="grid grid-cols-3 gap-1 my-4 mx-1 font-bold leading-none text-lg"
         >
           <div class="bg-gray-400 rounded p-2">
             ↶<br /><span class="text-gray-600">Q</span>
@@ -25,47 +25,29 @@
           <div class="bg-gray-400 rounded p-2">
             ↷<br /><span class="text-gray-600">E</span>
           </div>
-          <div class="bg-gray-100 rounded px-1 py-4">
-            ⇐ <span class="text-gray-600">A</span>
+          <div class="bg-gray-100 rounded p-2">
+            <span class="text-gray-600">A</span><br />⇐
           </div>
           <div class="bg-gray-100 rounded p-2">
             <span class="text-gray-600">S</span><br />⇓
           </div>
-          <div class="bg-gray-100 rounded px-1 py-4">
-            <span class="text-gray-600">D</span> ⇒
+          <div class="bg-gray-100 rounded p-2">
+            <span class="text-gray-600">D</span><br />⇒
           </div>
         </div>
 
-        <h3 class="text-white font-bold text-xl mt-4">Flughöhe</h3>
         <div
-          class="grid grid-cols-3 gap-1 my-4 mr-1 font-bold leading-none text-lg"
-        >
-          <div
-            class="row-span-2 bg-gray-400 rounded p-2 pt-8 cursor-pointer"
-            onclick="takeoff()"
-          >
-            <span class="text-gray-600">←</span>
-            <span class="block">abheben</span>
-          </div>
-          <div class="bg-gray-100 rounded p-2">
-            hoch<br /><span class="text-gray-600">↑</span>
-          </div>
-          <div
-            class="row-span-2 bg-gray-400 rounded p-2 pt-8 cursor-pointer"
-            onclick="land()"
-          >
-            <span class="text-gray-600">→</span>
-            <span class="block">landen</span>
-          </div>
-          <div class="bg-gray-100 rounded p-2">
-            <span class="text-gray-600">↓</span><br />runter
-          </div>
-        </div>
-
-        <div id="log" class="text-gray-500 flex-grow"></div>
-
-        <div class="text-white font-bold">
-          <span id="Height"></span>
+          class="transition-all duration-200"
+          style="flex-grow: 1;"
+          id="batteryBarGone"
+        ></div>
+        <div
+          class="mx-auto w-8 transition-all duration-200"
+          style="flex-grow: 0;"
+          id="batteryBarRemaining"
+        ></div>
+        <div class="text-white font-bold" id="batteryBarLabel">
+          <span id="BatteryPercentage"></span>% Akku
         </div>
       </div>
       <div
@@ -74,19 +56,36 @@
         style="max-width: 133.334vh;"
       ></div>
       <div class="flex-shrink-0 flex flex-col">
-        <h3 class="text-white font-bold text-xl mt-4">Akku</h3>
+        <h3 class="text-white font-bold text-xl mt-4">Flughöhe</h3>
         <div
-          class="transition-all duration-200"
-          style="flex-grow: 1;"
-          id="batteryBarGone"
-        ></div>
-        <div
-          class="mx-8 w-8 transition-all duration-200"
-          style="flex-grow: 0;"
-          id="batteryBarRemaining"
-        ></div>
-        <div class="text-white font-bold" id="batteryBarLabel">
-          <span id="BatteryPercentage"></span>%
+          class="grid grid-cols-3 gap-1 my-4 ml-1 font-bold leading-none text-lg"
+        >
+          <div
+            class="row-span-2 bg-gray-400 rounded pt-8 px-1 cursor-pointer"
+            onclick="takeoff()"
+          >
+            <span class="text-gray-600">←</span>
+            <span class="block">abheben</span>
+          </div>
+          <div class="bg-gray-100 rounded py-2">
+            hoch<br /><span class="text-gray-600">↑</span>
+          </div>
+          <div
+            class="row-span-2 bg-gray-400 rounded pt-8 px-1 cursor-pointer"
+            onclick="land()"
+          >
+            <span class="text-gray-600">→</span>
+            <span class="block">landen</span>
+          </div>
+          <div class="bg-gray-100 rounded py-2">
+            <span class="text-gray-600">↓</span><br />runter
+          </div>
+        </div>
+
+        <div id="log" class="text-gray-500 flex-grow"></div>
+
+        <div class="text-white font-bold">
+          <span id="Height"></span>
         </div>
       </div>
     </div>

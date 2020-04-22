@@ -11,6 +11,7 @@ import (
 
 	"github.com/pion/webrtc/v2"
 	"github.com/pion/webrtc/v2/pkg/media"
+	"gobot.io/x/gobot/platforms/dji/tello"
 )
 
 type Drone interface {
@@ -20,6 +21,7 @@ type Drone interface {
 	Clockwise(int) error
 	Right(int) error
 	Up(int) error
+	Flip(tello.FlipType) error
 	Hover()
 	TakeOff() error
 	Land() error
@@ -199,6 +201,8 @@ func startStreaming(offer webrtc.SessionDescription, frames *broadcast, flightDa
 				drone.TakeOff()
 			case "land":
 				drone.Land()
+			case "flip":
+				drone.Flip(tello.FlipType(b[0] - '0'))
 			default:
 				fmt.Println("unknown command", string(b), factor)
 			}

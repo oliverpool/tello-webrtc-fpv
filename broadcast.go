@@ -27,7 +27,7 @@ func (b *broadcast) Listen(ch chan<- []byte) func() {
 		b.lock.Lock()
 		defer b.lock.Unlock()
 		old := b.listeners
-		b.listeners = make([]chan<- []byte, 0, len(b.listeners)-1)
+		b.listeners = make([]chan<- []byte, 0, len(b.listeners))
 		for _, l := range old {
 			if l == ch {
 				continue

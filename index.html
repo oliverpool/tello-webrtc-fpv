@@ -1,164 +1,239 @@
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gobot-Pion</title>
-    <link href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css" rel="stylesheet">
-</head>
+    <link
+      href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+  </head>
 
-<body class="text-center bg-gray-800 min-h-screen flex flex-col">
+  <body class="text-center bg-gray-800 min-h-screen flex flex-col">
     <div class="flex-auto flex justify-center max-h-screen">
-        <div class="flex-shrink-0 flex flex-col">
-            <div class="transition-all duration-200" style="flex-grow: 1" id="heightBarGone"></div>
-            <div class="mx-8 w-8 transition-all duration-200" style="flex-grow: 0" id="heightBarRemaining">
-            </div>
-            <div class="text-white font-bold">
-                <span id="Height"></span>
-            </div>
+      <div class="flex-shrink-0 flex flex-col">
+        <h3 class="text-white font-bold text-xl mt-4">Steuerung</h3>
+        <div
+          class="grid grid-cols-3 gap-1 my-4 mr-1 font-bold leading-none text-lg"
+        >
+          <div class="bg-gray-400 rounded p-2">
+            ↶<br /><span class="text-gray-600">Q</span>
+          </div>
+          <div class="bg-gray-100 rounded p-2">
+            ⇑<br /><span class="text-gray-600">W</span>
+          </div>
+          <div class="bg-gray-400 rounded p-2">
+            ↷<br /><span class="text-gray-600">E</span>
+          </div>
+          <div class="bg-gray-100 rounded px-1 py-4">
+            ⇐ <span class="text-gray-600">A</span>
+          </div>
+          <div class="bg-gray-100 rounded p-2">
+            <span class="text-gray-600">S</span><br />⇓
+          </div>
+          <div class="bg-gray-100 rounded px-1 py-4">
+            <span class="text-gray-600">D</span> ⇒
+          </div>
         </div>
-        <div id="remoteVideos" class="flex-auto flex flex-col" style="max-width: 133.334vh;">
 
+        <h3 class="text-white font-bold text-xl mt-4">Flughöhe</h3>
+        <div
+          class="grid grid-cols-3 gap-1 my-4 mr-1 font-bold leading-none text-lg"
+        >
+          <div
+            class="row-span-2 bg-gray-400 rounded p-2 pt-8 cursor-pointer"
+            onclick="takeoff()"
+          >
+            <span class="text-gray-600">←</span>
+            <span class="block">abheben</span>
+          </div>
+          <div class="bg-gray-100 rounded p-2">
+            hoch<br /><span class="text-gray-600">↑</span>
+          </div>
+          <div
+            class="row-span-2 bg-gray-400 rounded p-2 pt-8 cursor-pointer"
+            onclick="land()"
+          >
+            <span class="text-gray-600">→</span>
+            <span class="block">landen</span>
+          </div>
+          <div class="bg-gray-100 rounded p-2">
+            <span class="text-gray-600">↓</span><br />runter
+          </div>
         </div>
-        <div class="flex-shrink-0 flex flex-col">
-            <div class="transition-all duration-200" style="flex-grow: 1" id="batteryBarGone"></div>
-            <div class="mx-8 w-8 transition-all duration-200" style="flex-grow: 0" id="batteryBarRemaining">
-            </div>
-            <div class="text-white font-bold">
-                <span id="BatteryPercentage"></span>%
-            </div>
-        </div>
-    </div>
 
-    <div class="hidden">
-        Battery:<br>
-        Height: <span id="Height"></span><br><br>
-        AZEQSD / Home / End<br />
+        <div id="log" class="text-gray-500 flex-grow"></div>
+
+        <div class="text-white font-bold">
+          <span id="Height"></span>
+        </div>
+      </div>
+      <div
+        id="remoteVideos"
+        class="flex-auto flex flex-col"
+        style="max-width: 133.334vh;"
+      ></div>
+      <div class="flex-shrink-0 flex flex-col">
+        <h3 class="text-white font-bold text-xl mt-4">Akku</h3>
+        <div
+          class="transition-all duration-200"
+          style="flex-grow: 1;"
+          id="batteryBarGone"
+        ></div>
+        <div
+          class="mx-8 w-8 transition-all duration-200"
+          style="flex-grow: 0;"
+          id="batteryBarRemaining"
+        ></div>
+        <div class="text-white font-bold">
+          <span id="BatteryPercentage"></span>%
+        </div>
+      </div>
     </div>
-    <div id="div" class="hidden"></div>
 
     <script>
-        /* eslint-env browser */
-        const configuration = { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
+      /* eslint-env browser */
+      const configuration = {
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      };
 
-        let pc = new RTCPeerConnection(configuration)
-        let log = msg => {
-            console.log(msg);
-            document.getElementById('div').innerHTML += msg + '<br>'
+      let pc = new RTCPeerConnection(configuration);
+      let log = (msg) => {
+        console.log(msg);
+        document.getElementById("log").innerHTML += msg + "<br>";
+      };
+
+      pc.ontrack = function (event) {
+        var el = document.createElement(event.track.kind);
+        el.srcObject = event.streams[0];
+        el.muted = true;
+        el.autoplay = true;
+        el.controls = false;
+        el.className = "flex-auto max-h-screen";
+
+        document.getElementById("remoteVideos").appendChild(el);
+      };
+
+      pc.oniceconnectionstatechange = (e) => log(pc.iceConnectionState);
+      pc.onicecandidate = (event) => {
+        if (event.candidate === null) {
+          var oReq = new XMLHttpRequest();
+          oReq.addEventListener("load", function reqListener() {
+            pc.setRemoteDescription(
+              new RTCSessionDescription(JSON.parse(this.responseText))
+            );
+          });
+          oReq.open(
+            "GET",
+            "/session?offer=" +
+              encodeURIComponent(JSON.stringify(pc.localDescription))
+          );
+          oReq.send();
+        }
+      };
+
+      // Offer to receive 1 audio, and 2 video tracks
+      pc.addTransceiver("video", { direction: "sendrecv" });
+
+      // add data channel
+      let sendChannel = pc.createDataChannel("pilot");
+      sendChannel.binaryType = "arraybuffer";
+      sendChannel.onclose = () => console.log("sendChannel has closed");
+      sendChannel.onopen = () => console.log("sendChannel has opened");
+      sendChannel.onmessage = (e) => {
+        let dataView = new DataView(e.data);
+        let decoder = new TextDecoder("utf8");
+        let { Height, BatteryPercentage } = JSON.parse(
+          decoder.decode(dataView)
+        );
+
+        document.getElementById("Height").innerText = Height;
+        document.getElementById(
+          "BatteryPercentage"
+        ).innerText = BatteryPercentage;
+        document.getElementById(
+          "BatteryPercentage"
+        ).innerText = BatteryPercentage;
+        const remainingElt = document.getElementById("batteryBarRemaining");
+        remainingElt.style.flexGrow = BatteryPercentage;
+        document.getElementById("batteryBarGone").style.flexGrow =
+          100 - BatteryPercentage;
+
+        if (BatteryPercentage > 30) {
+          remainingElt.classList.remove("bg-orange-500", "bg-red-500");
+          remainingElt.classList.add("bg-green-500");
+        } else if (BatteryPercentage > 15) {
+          remainingElt.classList.remove("bg-green-500", "bg-red-500");
+          remainingElt.classList.add("bg-orange-500");
+        } else {
+          remainingElt.classList.remove("bg-green-500", "bg-orange-500");
+          remainingElt.classList.add("bg-red-500");
+        }
+      };
+
+      // createOffer
+      pc.createOffer()
+        .then((d) => pc.setLocalDescription(d))
+        .catch(log);
+
+      let controls = {
+        KeyQ: "-clock",
+        KeyE: "+clock",
+
+        KeyS: "-forwa",
+        KeyW: "+forwa",
+
+        KeyA: "-right",
+        KeyD: "+right",
+
+        PageUp: "+up",
+        ArrowUp: "+up",
+        PageDown: "-up",
+        ArrowDown: "-up",
+
+        Home: "=takeoff",
+        ArrowLeft: "=takeoff",
+        End: "=land",
+        ArrowRight: "=land",
+      };
+      let shiftControls = {
+        KeyS: "2flip",
+        KeyW: "0flip",
+
+        KeyQ: "1flip",
+        KeyE: "3flip",
+
+        KeyA: "1flip",
+        KeyD: "3flip",
+      };
+      document.addEventListener("keyup", function (event) {
+        let e = controls[event.code];
+        if (!e) {
+          return;
         }
 
-        pc.ontrack = function (event) {
-            var el = document.createElement(event.track.kind)
-            el.srcObject = event.streams[0]
-            el.muted = true
-            el.autoplay = true
-            el.controls = false
-            el.className = "flex-auto max-h-screen"
-
-            document.getElementById('remoteVideos').appendChild(el)
+        event.preventDefault();
+        if (e.substr(0, 1) != "=" && !event.shiftKey) {
+          sendChannel.send("=hover");
         }
+      });
 
-        pc.oniceconnectionstatechange = e => log(pc.iceConnectionState)
-        pc.onicecandidate = event => {
-            if (event.candidate === null) {
-                var oReq = new XMLHttpRequest();
-                oReq.addEventListener("load", function reqListener() {
-                    pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(this.responseText)))
-                });
-                oReq.open("GET", "/session?offer=" + encodeURIComponent(JSON.stringify(pc.localDescription)));
-                oReq.send();
-            }
+      document.addEventListener("keydown", function (event) {
+        const currentControls = event.shiftKey ? shiftControls : controls;
+        let e = currentControls[event.code];
+        if (!e) {
+          console.log(event.code);
+          return;
         }
-
-        // Offer to receive 1 audio, and 2 video tracks
-        pc.addTransceiver('video', { 'direction': 'sendrecv' })
-
-        // add data channel
-        let sendChannel = pc.createDataChannel('pilot')
-        sendChannel.binaryType = "arraybuffer";
-        sendChannel.onclose = () => console.log('sendChannel has closed')
-        sendChannel.onopen = () => console.log('sendChannel has opened')
-        sendChannel.onmessage = (e) => {
-            let dataView = new DataView(e.data);
-            let decoder = new TextDecoder('utf8');
-            let { Height, BatteryPercentage } = JSON.parse(decoder.decode(dataView));
-
-            document.getElementById('Height').innerText = Height;
-            document.getElementById('BatteryPercentage').innerText = BatteryPercentage;
-            document.getElementById('BatteryPercentage').innerText = BatteryPercentage;
-            const remainingElt = document.getElementById('batteryBarRemaining')
-            remainingElt.style.flexGrow = BatteryPercentage;
-            document.getElementById('batteryBarGone').style.flexGrow = 100 - BatteryPercentage;
-
-            if (BatteryPercentage > 30) {
-                remainingElt.classList.remove("bg-orange-500", "bg-red-500");
-                remainingElt.classList.add("bg-green-500");
-            } else if (BatteryPercentage > 15) {
-                remainingElt.classList.remove("bg-green-500", "bg-red-500");
-                remainingElt.classList.add("bg-orange-500");
-            } else {
-                remainingElt.classList.remove("bg-green-500", "bg-orange-500");
-                remainingElt.classList.add("bg-red-500");
-            }
-        }
-
-        // createOffer
-        pc.createOffer().then(d => pc.setLocalDescription(d)).catch(log)
-
-        let controls = {
-            "KeyA": "-clock",
-            "KeyD": "+clock",
-
-            "KeyS": "-forwa",
-            "KeyW": "+forwa",
-
-            "KeyQ": "-right",
-            "KeyE": "+right",
-
-            "PageUp": "+up",
-            "ArrowUp": "+up",
-            "PageDown": "-up",
-            "ArrowDown": "-up",
-
-            "Home": "=takeoff",
-            "ArrowLeft": "=takeoff",
-            "End": "=land",
-            "ArrowRight": "=land",
-        }
-        let shiftControls = {
-            "KeyS": "2flip",
-            "KeyW": "0flip",
-
-            "KeyQ": "1flip",
-            "KeyE": "3flip",
-
-            "KeyA": "1flip",
-            "KeyD": "3flip",
-        }
-        document.addEventListener('keyup', function (event) {
-            let e = controls[event.code];
-            if (!e) {
-                return
-            }
-
-            event.preventDefault()
-            if (e.substr(0, 1) != "=" && !event.shiftKey) {
-                sendChannel.send("=hover")
-            }
-        });
-
-        document.addEventListener('keydown', function (event) {
-            const currentControls = event.shiftKey ? shiftControls : controls;
-            let e = currentControls[event.code];
-            if (!e) {
-                console.log(event.code);
-                return
-            }
-            event.preventDefault()
-            sendChannel.send(e)
-        });
-
+        event.preventDefault();
+        sendChannel.send(e);
+      });
+      function takeoff() {
+        sendChannel.send("=takeoff");
+      }
+      function land() {
+        sendChannel.send("=land");
+      }
     </script>
-</body>
-
+  </body>
 </html>

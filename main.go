@@ -202,7 +202,9 @@ func startStreaming(offer webrtc.SessionDescription, frames *broadcast, flightDa
 			case "land":
 				drone.Land()
 			case "flip":
-				drone.Flip(tello.FlipType(b[0] - '0'))
+				ft := tello.FlipType(b[0] - '0')
+				err := drone.Flip(ft)
+				fmt.Println("ft", ft, err)
 			default:
 				fmt.Println("unknown command", string(b), factor)
 			}

@@ -109,6 +109,9 @@ func (d DroneMock) startVideo2() error {
 			continue
 		}
 
+		// We buffer the bytes, until it looks like a good h264 frame
+		//
+		// Thanks to https://yumichan.net/video-processing/video-compression/introduction-to-h264-nal-unit/
 		nal_unit_type := b[4] & 0b11111
 		if (nal_unit_type == 7 || nal_unit_type == 1) && len(buf) > 0 {
 			d.frames <- buf

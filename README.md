@@ -55,6 +55,10 @@ My code accumulates and sends: `[1] [1] [7 8 5] [1] [1] [7 8 5]...`
 
 With this, I was able to have a working video stream on Firefox (the H264 codec must be active in the addons), Chrome and Safari!
 
+## Related work
+
+- [TelloGo](https://github.com/Ragnar-H/TelloGo): program the steps of the drone from the browser
+
 -----
 
 Have fun!

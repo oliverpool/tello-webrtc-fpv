@@ -3,13 +3,17 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"sync/atomic"
 
 	"github.com/pion/webrtc/v3"
 	"gobot.io/x/gobot/platforms/dji/tello"
+	"golang.org/x/net/websocket"
 )
 
 type Drone interface {
@@ -60,8 +64,9 @@ func run() error {
 		return err
 	}
 
-	http.Handle("/session", startSession(drone))
 	http.Handle("/", http.FileServer(http.Dir(".")))
+	http.Handle("/websocket", websocket.Handler(socketHandler(drone)))
+
 	addr := os.Getenv("ADDR")
 	if addr == "" {
 		addr = "localhost:3000"
@@ -71,31 +76,83 @@ func run() error {
 	return http.ListenAndServe(addr, nil)
 }
 
-func startSession(drone Drone) http.HandlerFunc {
+type logger func(...interface{})
+
+func socketHandler(drone Drone) func(*websocket.Conn) {
 	flightData := &broadcast{}
 	go flightData.ForwardFlightData(drone.FlightData())
 
-	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("\n[User-Agent]", r.Header.Get("User-Agent"))
-		param := r.FormValue("offer")
-		offer := webrtc.SessionDescription{}
+	var counter int32
 
-		err := json.Unmarshal([]byte(param), &offer)
+	return func(ws *websocket.Conn) {
+		prefix := strconv.Itoa(int(atomic.AddInt32(&counter, 1)))
+		fmt.Println()
+		log := func(i ...interface{}) {
+			fmt.Println(append([]interface{}{prefix}, i...)...)
+		}
+		log("[User-Agent]", ws.Request().UserAgent())
+
+		// Create a new RTCPeerConnection
+		pc, err := webrtc.NewPeerConnection(webrtc.Configuration{
+			ICEServers: []webrtc.ICEServer{
+				{
+					URLs: []string{"stun:stun.l.google.com:19302"},
+				},
+			},
+		})
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+			panic(err)
 		}
 
-		answer, err := startStreaming(offer, drone.VideoTrack(), flightData, drone)
+		_, err = pc.AddTrack(trackDebugger{drone.VideoTrack()})
 		if err != nil {
-			fmt.Println("error", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			panic(err)
 		}
-		err = json.NewEncoder(w).Encode(answer)
-		if err != nil {
-			fmt.Println(err)
-		}
+
+		pc.OnDataChannel(func(d *webrtc.DataChannel) {
+			log("DataChannel", d.Label(), d.ID())
+
+			d.OnMessage(func(msg webrtc.DataChannelMessage) {
+				b := msg.Data
+				factor := 2
+				if b[0] == '-' {
+					factor = -2
+				}
+
+				switch string(b[1:]) {
+				case "forwa":
+					drone.Forward(20 * factor)
+				case "clock":
+					drone.Clockwise(25 * factor)
+				case "right":
+					drone.Right(20 * factor)
+				case "up":
+					drone.Up(20 * factor)
+				case "hover":
+					drone.Hover()
+				case "takeoff":
+					drone.TakeOff()
+				case "land":
+					drone.Land()
+				case "flip":
+					ft := tello.FlipType(b[0] - '0')
+					err := drone.Flip(ft)
+					fmt.Println("ft", ft, err)
+				default:
+					log("unknown command", string(b), factor)
+				}
+			})
+
+			d.OnOpen(func() {
+				ch := make(chan []byte, 1)
+				_ = flightData.Listen(ch)
+				for fd := range ch {
+					d.Send(fd)
+				}
+			})
+		})
+
+		handleICE(log, pc, ws)
 	}
 }
 
@@ -112,93 +169,65 @@ func (td trackDebugger) Bind(ctx webrtc.TrackLocalContext) (webrtc.RTPCodecParam
 	return params, err
 }
 
-func startStreaming(offer webrtc.SessionDescription, videoTrack webrtc.TrackLocal, flightData *broadcast, drone Drone) (*webrtc.SessionDescription, error) {
-	peerConnection, err := webrtc.NewPeerConnection(webrtc.Configuration{
-		ICEServers: []webrtc.ICEServer{
-			{
-				URLs: []string{"stun:stun.l.google.com:19302"},
-			},
-		},
+func handleICE(log logger, pc *webrtc.PeerConnection, ws io.ReadWriter) {
+	// Set the handler for ICE connection state
+	// This will notify you when the peer has connected/disconnected
+	pc.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
+		log("ICE", connectionState.String())
 	})
-	if err != nil {
-		return nil, err
-	}
 
-	rtpSender, err := peerConnection.AddTrack(trackDebugger{videoTrack})
-	if err != nil {
-		return nil, err
-	}
+	// When Pion gathers a new ICE Candidate send it to the client.
+	encoder := json.NewEncoder(ws)
+	pc.OnICECandidate(func(c *webrtc.ICECandidate) {
+		if c == nil {
+			return
+		}
+		if err := encoder.Encode(c.ToJSON()); err != nil {
+			log("ERROR", "JSON-Encoder", err)
+		}
+	})
 
-	// Read incoming RTCP packets
-	// Before these packets are returned they are processed by interceptors. For things
-	// like NACK this needs to be called.
-	go func() {
-		rtcpBuf := make([]byte, 1500)
-		for {
-			if _, _, rtcpErr := rtpSender.Read(rtcpBuf); rtcpErr != nil {
-				return
+	decoder := json.NewDecoder(ws)
+	for {
+		var socketMsg struct {
+			webrtc.ICECandidateInit
+			webrtc.SessionDescription
+		}
+
+		if err := decoder.Decode(&socketMsg); err != nil {
+			log("ERROR", "JSON-Decoder", err)
+			return
+		}
+
+		// Attempt to unmarshal as a SessionDescription. If the SDP field is empty
+		// assume it is not one.
+		if socketMsg.SDP != "" {
+			log("SDP")
+			if err := pc.SetRemoteDescription(socketMsg.SessionDescription); err != nil {
+				log("ERROR", "SDP", err)
+			}
+
+			answer, err := pc.CreateAnswer(nil)
+			if err != nil {
+				log("ERROR", "SDP", err)
+			}
+
+			if err := pc.SetLocalDescription(answer); err != nil {
+				log("ERROR", "SDP", err)
+			}
+
+			if err := encoder.Encode(answer); err != nil {
+				log("ERROR", "SDP", err)
 			}
 		}
-	}()
 
-	peerConnection.OnDataChannel(func(d *webrtc.DataChannel) {
-		fmt.Printf("New DataChannel %s %d\n", d.Label(), d.ID())
-
-		d.OnMessage(func(msg webrtc.DataChannelMessage) {
-			b := msg.Data
-			factor := 2
-			if b[0] == '-' {
-				factor = -2
+		// Attempt to unmarshal as a ICECandidateInit. If the candidate field is empty
+		// assume it is not one.
+		if socketMsg.Candidate != "" {
+			log("ICE  candidate")
+			if err := pc.AddICECandidate(socketMsg.ICECandidateInit); err != nil {
+				log("ERROR", "Candidate", err)
 			}
-
-			switch string(b[1:]) {
-			case "forwa":
-				drone.Forward(20 * factor)
-			case "clock":
-				drone.Clockwise(25 * factor)
-			case "right":
-				drone.Right(20 * factor)
-			case "up":
-				drone.Up(20 * factor)
-			case "hover":
-				drone.Hover()
-			case "takeoff":
-				drone.TakeOff()
-			case "land":
-				drone.Land()
-			case "flip":
-				ft := tello.FlipType(b[0] - '0')
-				err := drone.Flip(ft)
-				fmt.Println("ft", ft, err)
-			default:
-				fmt.Println("unknown command", string(b), factor)
-			}
-		})
-
-		d.OnOpen(func() {
-			ch := make(chan []byte, 1)
-			_ = flightData.Listen(ch)
-			for fd := range ch {
-				d.Send(fd)
-			}
-		})
-	})
-
-	// Set the remote SessionDescription
-	if err = peerConnection.SetRemoteDescription(offer); err != nil {
-		return nil, err
+		}
 	}
-
-	// Create answer
-	answer, err := peerConnection.CreateAnswer(nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// Sets the LocalDescription, and starts our UDP listeners
-	if err = peerConnection.SetLocalDescription(answer); err != nil {
-		return nil, err
-	}
-
-	return &answer, nil
 }

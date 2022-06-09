@@ -164,23 +164,9 @@
         document.getElementById("remoteVideos").appendChild(el);
       };
 
+      pc.onconnectionstatechange = (e) => log(pc.iceConnectionState);
       pc.oniceconnectionstatechange = (e) => log(pc.iceConnectionState);
-      pc.onicecandidate = (event) => {
-        if (event.candidate === null) {
-          var oReq = new XMLHttpRequest();
-          oReq.addEventListener("load", function reqListener() {
-            pc.setRemoteDescription(
-              new RTCSessionDescription(JSON.parse(this.responseText))
-            );
-          });
-          oReq.open(
-            "GET",
-            "/session?offer=" +
-              encodeURIComponent(JSON.stringify(pc.localDescription))
-          );
-          oReq.send();
-        }
-      };
+      pc.onicegatheringstatechange = (e) => log(pc.iceGatheringState);
 
       // Offer to receive 1 audio, and 2 video tracks
       pc.addTransceiver("video", { direction: "sendrecv" });
@@ -229,10 +215,38 @@
         }
       };
 
-      // createOffer
-      pc.createOffer()
-        .then((d) => pc.setLocalDescription(d))
-        .catch(log);
+      // trickle-ice
+      let wsProto = "ws";
+      if (window.location.protocol != "http:") {
+        wsProto += "s";
+      }
+      const socket = new WebSocket(
+        wsProto + `://${window.location.host}/websocket`
+      );
+      socket.onmessage = (e) => {
+        let msg = JSON.parse(e.data);
+        if (!msg) {
+          return console.log("failed to parse msg");
+        }
+
+        if (msg.candidate) {
+          pc.addIceCandidate(msg);
+        } else {
+          pc.setRemoteDescription(msg);
+        }
+      };
+
+      pc.onicecandidate = (e) => {
+        if (e.candidate && e.candidate.candidate !== "") {
+          socket.send(JSON.stringify(e.candidate));
+        }
+      };
+      socket.onopen = () => {
+        pc.createOffer().then((offer) => {
+          pc.setLocalDescription(offer);
+          socket.send(JSON.stringify(offer));
+        });
+      };
 
       let controls = {
         KeyQ: "-clock",

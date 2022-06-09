@@ -15,26 +15,62 @@
       <div class="flex-shrink-0 flex flex-col">
         <h3 class="text-white font-bold text-xl mt-4">Steuerung</h3>
         <div
-          class="grid grid-cols-3 gap-1 my-4 mx-1 font-bold leading-none text-lg"
+          class="grid grid-cols-3 gap-1 my-4 mx-1 font-bold leading-none text-lg select-none"
         >
-          <div class="bg-gray-400 rounded p-2">
+          <button
+            class="bg-gray-400 rounded p-2"
+            onmousedown="startCmd(event, '-clock')"
+            ontouchstart="startCmd(event, '-clock')"
+            onmouseup="stopCmd(event, '-clock')"
+            ontouchend="stopCmd(event, '-clock')"
+          >
             ↶<br /><span class="text-gray-600">Q</span>
-          </div>
-          <div class="bg-gray-100 rounded p-2">
+          </button>
+          <button
+            class="bg-gray-100 rounded p-2"
+            onmousedown="startCmd(event, '+forwa')"
+            ontouchstart="startCmd(event, '+forwa')"
+            onmouseup="stopCmd(event, '+forwa')"
+            ontouchend="stopCmd(event, '+forwa')"
+          >
             ⇑<br /><span class="text-gray-600">W</span>
-          </div>
-          <div class="bg-gray-400 rounded p-2">
+          </button>
+          <button
+            class="bg-gray-400 rounded p-2"
+            onmousedown="startCmd(event, '+clock')"
+            ontouchstart="startCmd(event, '+clock')"
+            onmouseup="stopCmd(event, '+clock')"
+            ontouchend="stopCmd(event, '+clock')"
+          >
             ↷<br /><span class="text-gray-600">E</span>
-          </div>
-          <div class="bg-gray-100 rounded p-2">
+          </button>
+          <button
+            class="bg-gray-100 rounded p-2"
+            onmousedown="startCmd(event, '-right')"
+            ontouchstart="startCmd(event, '-right')"
+            onmouseup="stopCmd(event, '-right')"
+            ontouchend="stopCmd(event, '-right')"
+          >
             <span class="text-gray-600">A</span><br />⇐
-          </div>
-          <div class="bg-gray-100 rounded p-2">
+          </button>
+          <button
+            class="bg-gray-100 rounded p-2"
+            onmousedown="startCmd(event, '-forwa')"
+            ontouchstart="startCmd(event, '-forwa')"
+            onmouseup="stopCmd(event, '-forwa')"
+            ontouchend="stopCmd(event, '-forwa')"
+          >
             <span class="text-gray-600">S</span><br />⇓
-          </div>
-          <div class="bg-gray-100 rounded p-2">
+          </button>
+          <button
+            class="bg-gray-100 rounded p-2"
+            onmousedown="startCmd(event, '+right')"
+            ontouchstart="startCmd(event, '+right')"
+            onmouseup="stopCmd(event, '+right')"
+            ontouchend="stopCmd(event, '+right')"
+          >
             <span class="text-gray-600">D</span><br />⇒
-          </div>
+          </button>
         </div>
 
         <div
@@ -59,33 +95,47 @@
       <div class="flex-shrink-0 flex flex-col">
         <h3 class="text-white font-bold text-xl mt-4">Flughöhe</h3>
         <div
-          class="grid grid-cols-3 gap-1 my-4 ml-1 font-bold leading-none text-lg"
+          class="grid grid-cols-3 gap-1 my-4 ml-1 leading-none text-lg select-none"
         >
-          <div
-            class="row-span-2 bg-gray-400 rounded pt-8 px-1 cursor-pointer"
-            onclick="takeoff()"
+          <button
+            class="row-span-2 bg-gray-400 rounded px-1 cursor-pointer"
+            onmousedown="startCmd(event, '=takeoff')"
+            ontouchstart="startCmd(event, '=takeoff')"
           >
-            <span class="text-gray-600">←</span>
+            <strong class="text-gray-600">←</strong>
             <span class="block">abheben</span>
-          </div>
-          <div class="bg-gray-100 rounded py-2">
-            hoch<br /><span class="text-gray-600">↑</span>
-          </div>
-          <div
-            class="row-span-2 bg-gray-400 rounded pt-8 px-1 cursor-pointer"
-            onclick="land()"
+          </button>
+          <button
+            class="bg-gray-100 rounded py-2"
+            onmousedown="startCmd(event, '+up')"
+            ontouchstart="startCmd(event, '+up')"
+            onmouseup="stopCmd(event, '+up')"
+            ontouchend="stopCmd(event, '+up')"
           >
-            <span class="text-gray-600">→</span>
+            hoch<br /><strong class="text-gray-600">↑</strong>
+          </button>
+          <button
+            class="row-span-2 bg-gray-400 rounded px-1 cursor-pointer"
+            onmousedown="startCmd(event, '=land')"
+            ontouchstart="startCmd(event, '=land')"
+          >
+            <strong class="text-gray-600">→</strong>
             <span class="block">landen</span>
-          </div>
-          <div class="bg-gray-100 rounded py-2">
-            <span class="text-gray-600">↓</span><br />runter
-          </div>
+          </button>
+          <button
+            class="bg-gray-100 rounded py-2"
+            onmousedown="startCmd(event, '-up')"
+            ontouchstart="startCmd(event, '-up')"
+            onmouseup="stopCmd(event, '-up')"
+            ontouchend="stopCmd(event, '-up')"
+          >
+            <strong class="text-gray-600">↓</strong><br />runter
+          </button>
         </div>
 
         <div id="log" class="text-gray-500 flex-grow"></div>
 
-        <div class="text-white font-bold">
+        <div class="text-white font-bold" title="Height">
           <span id="Height"></span>
         </div>
       </div>
@@ -223,11 +273,7 @@
         if (!e) {
           return;
         }
-
-        event.preventDefault();
-        if (e.substr(0, 1) != "=" && !event.shiftKey) {
-          sendChannel.send("=hover");
-        }
+        stopCmd(event, e);
       });
 
       document.addEventListener("keydown", function (event) {
@@ -237,14 +283,39 @@
           console.log(event.code);
           return;
         }
-        event.preventDefault();
-        sendChannel.send(e);
+        startCmd(event, e);
       });
-      function takeoff() {
-        sendChannel.send("=takeoff");
+
+      var cmdIntervalIds = {};
+      function startCmd(e, cmd) {
+        e.preventDefault();
+
+        if (cmdIntervalIds[cmd]) {
+          // already running
+          return;
+        }
+
+        sendChannel.send(cmd);
+        if (cmd.substr(0, 1) != "+" && cmd.substr(0, 1) != "-") {
+          return;
+        }
+        cmdIntervalIds[cmd] = setInterval(() => {
+          sendChannel.send(cmd);
+        }, 200);
       }
-      function land() {
-        sendChannel.send("=land");
+
+      function stopCmd(e, cmd) {
+        e.preventDefault();
+
+        if (cmd.substr(0, 1) == "=") {
+          return;
+        }
+
+        if (cmdIntervalIds[cmd]) {
+          clearInterval(cmdIntervalIds[cmd]);
+          cmdIntervalIds[cmd] = null;
+        }
+        sendChannel.send("=hover");
       }
     </script>
   </body>

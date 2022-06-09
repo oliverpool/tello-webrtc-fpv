@@ -8,14 +8,16 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/pion/webrtc/v3"
+	"github.com/pion/webrtc/v3/pkg/media"
 	"gobot.io/x/gobot/platforms/dji/tello"
 	"gopkg.in/metakeule/loop.v4"
 )
 
 type DroneMock struct {
-	video  io.Reader
-	sleep  time.Duration
-	frames chan []byte
+	video      io.Reader
+	sleep      time.Duration
+	videoTrack *webrtc.TrackLocalStaticSample
 }
 
 func NewMock(filepath string) (*DroneMock, error) {
@@ -23,11 +25,18 @@ func NewMock(filepath string) (*DroneMock, error) {
 	if err != nil {
 		return nil, err
 	}
+	videoTrack, err := webrtc.NewTrackLocalStaticSample(
+		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeH264},
+		"video",
+		"tello",
+	)
+	if err != nil {
+		return nil, err
+	}
 	d := &DroneMock{
-		video: loop.New(buf),
-		sleep: 40 * time.Millisecond,
-		// sleep:  30 * time.Millisecond,
-		frames: make(chan []byte, 1),
+		video:      loop.New(buf),
+		sleep:      40 * time.Millisecond,
+		videoTrack: videoTrack,
 	}
 	go d.startVideo2()
 	return d, nil
@@ -81,27 +90,31 @@ func (d DroneMock) FlightData() <-chan FlightData {
 	return ch
 }
 
-func (d DroneMock) Frames() <-chan []byte {
-	return d.frames
+func (d DroneMock) VideoTrack() webrtc.TrackLocal {
+	return d.videoTrack
 }
-func (d DroneMock) startVideo() error {
-	scanner := bufio.NewScanner(d.video)
-	scanner.Split(ScanFrames)
 
-	for scanner.Scan() {
-		select {
-		case d.frames <- scanner.Bytes():
-		case <-time.After(d.sleep):
-		}
-		time.Sleep(d.sleep)
-	}
-	return scanner.Err()
-}
+// func (d DroneMock) startVideo() error {
+// 	scanner := bufio.NewScanner(d.video)
+// 	scanner.Split(ScanFrames)
+
+// 	for scanner.Scan() {
+// 		select {
+// 		case d.frames <- scanner.Bytes():
+// 		case <-time.After(d.sleep):
+// 		}
+// 		time.Sleep(d.sleep)
+// 	}
+// 	return scanner.Err()
+// }
+
 func (d DroneMock) startVideo2() error {
 	scanner := bufio.NewScanner(d.video)
 	scanner.Split(ScanFrames)
 
 	var buf []byte
+	ticker := time.NewTicker(d.sleep)
+	defer ticker.Stop()
 	for scanner.Scan() {
 		b := scanner.Bytes()
 		if len(b) < 5 {
@@ -114,8 +127,13 @@ func (d DroneMock) startVideo2() error {
 		// Thanks to https://yumichan.net/video-processing/video-compression/introduction-to-h264-nal-unit/
 		nal_unit_type := b[4] & 0b11111
 		if (nal_unit_type == 7 || nal_unit_type == 1) && len(buf) > 0 {
-			d.frames <- buf
-			time.Sleep(d.sleep)
+			ts := <-ticker.C
+			d.videoTrack.WriteSample(media.Sample{
+				Data:      buf,
+				Duration:  d.sleep,
+				Timestamp: ts,
+			})
+
 			buf = append(buf[:0], b...)
 		} else {
 			buf = append(buf, b...)

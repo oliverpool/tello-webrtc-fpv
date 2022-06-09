@@ -4,18 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
 
-	"github.com/pion/webrtc/v2"
-	"github.com/pion/webrtc/v2/pkg/media"
+	"github.com/pion/webrtc/v3"
 	"gobot.io/x/gobot/platforms/dji/tello"
 )
 
 type Drone interface {
-	Frames() <-chan []byte
+	VideoTrack() webrtc.TrackLocal
 	FlightData() <-chan FlightData
 	Forward(int) error
 	Clockwise(int) error
@@ -35,7 +33,7 @@ type FlightData struct {
 func main() {
 	go panicOnInterrupt()
 	if err := run(); err != nil {
-		log.Fatal("errror", err)
+		log.Fatal("error", err)
 	}
 }
 
@@ -64,24 +62,21 @@ func run() error {
 
 	http.Handle("/session", startSession(drone))
 	http.Handle("/", http.FileServer(http.Dir(".")))
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "3000"
+	addr := os.Getenv("ADDR")
+	if addr == "" {
+		addr = "localhost:3000"
 	}
-	fmt.Println("serving on http://localhost:" + port)
+	fmt.Println("serving on http://" + addr)
 
-	return http.ListenAndServe(":"+port, nil)
+	return http.ListenAndServe(addr, nil)
 }
 
 func startSession(drone Drone) http.HandlerFunc {
-	frames := &broadcast{}
-	go frames.Forward(drone.Frames())
-
 	flightData := &broadcast{}
 	go flightData.ForwardFlightData(drone.FlightData())
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println(r.Header.Get("User-Agent"))
+		fmt.Println("\n[User-Agent]", r.Header.Get("User-Agent"))
 		param := r.FormValue("offer")
 		offer := webrtc.SessionDescription{}
 
@@ -91,7 +86,7 @@ func startSession(drone Drone) http.HandlerFunc {
 			return
 		}
 
-		answer, err := startStreaming(offer, frames, flightData, drone)
+		answer, err := startStreaming(offer, drone.VideoTrack(), flightData, drone)
 		if err != nil {
 			fmt.Println("error", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -104,38 +99,21 @@ func startSession(drone Drone) http.HandlerFunc {
 	}
 }
 
-func startStreaming(offer webrtc.SessionDescription, frames *broadcast, flightData *broadcast, drone Drone) (*webrtc.SessionDescription, error) {
-	// We make our own mediaEngine so we can place the sender's codecs in it.  This because we must use the
-	// dynamic media type from the sender in our answer. This is not required if we are the offerer
-	mediaEngine := webrtc.MediaEngine{}
-	err := mediaEngine.PopulateFromSDP(offer)
-	if err != nil {
-		return nil, err
-	}
+type trackDebugger struct {
+	webrtc.TrackLocal
+}
 
-	for _, videoCodec := range mediaEngine.GetCodecsByKind(webrtc.RTPCodecTypeVideo) {
-		fmt.Println(videoCodec)
+func (td trackDebugger) Bind(ctx webrtc.TrackLocalContext) (webrtc.RTPCodecParameters, error) {
+	for _, p := range ctx.CodecParameters() {
+		fmt.Println(p.PayloadType, p)
 	}
+	params, err := td.TrackLocal.Bind(ctx)
+	fmt.Println("===>", params.PayloadType)
+	return params, err
+}
 
-	// Search for H264 Payload type. If the offer doesn't support H264 exit since
-	// since they won't be able to decode anything we send them
-	var payloadType uint8
-	for _, videoCodec := range mediaEngine.GetCodecsByKind(webrtc.RTPCodecTypeVideo) {
-		if videoCodec.Name == "H264" {
-			payloadType = videoCodec.PayloadType
-			break
-		}
-	}
-	if payloadType == 0 {
-		return nil, fmt.Errorf("Remote peer does not support H264")
-	}
-	if payloadType != 126 {
-		fmt.Println("Video might not work with codec", payloadType)
-	}
-
-	// Create a new RTCPeerConnection
-	api := webrtc.NewAPI(webrtc.WithMediaEngine(mediaEngine))
-	peerConnection, err := api.NewPeerConnection(webrtc.Configuration{
+func startStreaming(offer webrtc.SessionDescription, videoTrack webrtc.TrackLocal, flightData *broadcast, drone Drone) (*webrtc.SessionDescription, error) {
+	peerConnection, err := webrtc.NewPeerConnection(webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
 			{
 				URLs: []string{"stun:stun.l.google.com:19302"},
@@ -146,39 +124,26 @@ func startStreaming(offer webrtc.SessionDescription, frames *broadcast, flightDa
 		return nil, err
 	}
 
-	// Create a video track
-	videoTrack, err := peerConnection.NewTrack(payloadType, rand.Uint32(), "video", "pion")
+	rtpSender, err := peerConnection.AddTrack(trackDebugger{videoTrack})
 	if err != nil {
 		return nil, err
 	}
-	if _, err = peerConnection.AddTrack(videoTrack); err != nil {
-		return nil, err
-	}
 
-	removeListener := func() {}
-	// Set the handler for ICE connection state
-	// This will notify you when the peer has connected/disconnected
-	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-		if connectionState == webrtc.ICEConnectionStateConnected {
-			fmt.Println("Peer connected")
-			ch := make(chan []byte)
-			removeListener = frames.Listen(ch)
-			for frame := range ch {
-				if err = videoTrack.WriteSample(media.Sample{Data: frame, Samples: 1}); err != nil {
-					fmt.Println(err)
-				}
+	// Read incoming RTCP packets
+	// Before these packets are returned they are processed by interceptors. For things
+	// like NACK this needs to be called.
+	go func() {
+		rtcpBuf := make([]byte, 1500)
+		for {
+			if _, _, rtcpErr := rtpSender.Read(rtcpBuf); rtcpErr != nil {
+				return
 			}
-		} else {
-			removeListener()
 		}
-	})
+	}()
 
 	peerConnection.OnDataChannel(func(d *webrtc.DataChannel) {
 		fmt.Printf("New DataChannel %s %d\n", d.Label(), d.ID())
 
-		d.OnClose(func() {
-			removeListener()
-		})
 		d.OnMessage(func(msg webrtc.DataChannelMessage) {
 			b := msg.Data
 			factor := 2

@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -38,12 +39,12 @@
 
         <div
           class="transition-all duration-200"
-          style="flex-grow: 1;"
+          style="flex-grow: 1"
           id="batteryBarGone"
         ></div>
         <div
           class="mx-auto w-8 transition-all duration-200"
-          style="flex-grow: 0;"
+          style="flex-grow: 0"
           id="batteryBarRemaining"
         ></div>
         <div class="text-white font-bold" id="batteryBarLabel">
@@ -53,7 +54,7 @@
       <div
         id="remoteVideos"
         class="flex-auto flex flex-col"
-        style="max-width: 133.334vh;"
+        style="max-width: 133.334vh"
       ></div>
       <div class="flex-shrink-0 flex flex-col">
         <h3 class="text-white font-bold text-xl mt-4">Flughöhe</h3>
@@ -147,12 +148,10 @@
         );
 
         document.getElementById("Height").innerText = Height;
-        document.getElementById(
-          "BatteryPercentage"
-        ).innerText = BatteryPercentage;
-        document.getElementById(
-          "BatteryPercentage"
-        ).innerText = BatteryPercentage;
+        document.getElementById("BatteryPercentage").innerText =
+          BatteryPercentage;
+        document.getElementById("BatteryPercentage").innerText =
+          BatteryPercentage;
         const remainingElt = document.getElementById("batteryBarRemaining");
         const labelElt = document.getElementById("batteryBarLabel");
         remainingElt.style.flexGrow = BatteryPercentage;
@@ -197,13 +196,17 @@
 
         PageUp: "+up",
         ArrowUp: "+up",
+        KeyU: "+up",
         PageDown: "-up",
         ArrowDown: "-up",
+        KeyJ: "-up",
 
         Home: "=takeoff",
         ArrowLeft: "=takeoff",
+        KeyH: "=takeoff",
         End: "=land",
         ArrowRight: "=land",
+        KeyK: "=land",
       };
       let shiftControls = {
         KeyS: "2flip",

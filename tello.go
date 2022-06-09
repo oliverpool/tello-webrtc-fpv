@@ -4,23 +4,33 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pion/webrtc/v3"
+	"github.com/pion/webrtc/v3/pkg/media"
 	"gobot.io/x/gobot"
 	"gobot.io/x/gobot/platforms/dji/tello"
 )
 
 type Tello struct {
 	*tello.Driver
-	frames     chan []byte
 	flightdata chan FlightData
+	videoTrack *webrtc.TrackLocalStaticSample
 }
 
 func NewTello() (Tello, error) {
 	drone := tello.NewDriver("8890")
 
+	videoTrack, err := webrtc.NewTrackLocalStaticSample(
+		webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeH264},
+		"video",
+		"tello",
+	)
+	if err != nil {
+		return Tello{}, err
+	}
 	t := Tello{
 		Driver:     drone,
 		flightdata: make(chan FlightData),
-		frames:     make(chan []byte),
+		videoTrack: videoTrack,
 	}
 
 	robot := gobot.NewRobot("tello",
@@ -32,8 +42,8 @@ func NewTello() (Tello, error) {
 	return t, robot.Start(false)
 }
 
-func (t Tello) Frames() <-chan []byte {
-	return t.frames
+func (t Tello) VideoTrack() webrtc.TrackLocal {
+	return t.videoTrack
 }
 
 func (t Tello) FlightData() <-chan FlightData {
@@ -69,7 +79,10 @@ func (t Tello) startVideo() {
 	drone.On(tello.VideoFrameEvent, func(data interface{}) {
 		b := data.([]byte)
 		if len(buf) > 0 && isNalUnitStart(b) && sendPreviousBytes(b) {
-			t.frames <- buf
+			t.videoTrack.WriteSample(media.Sample{
+				Data:     buf,
+				Duration: 5 * time.Millisecond, // just a wild guess
+			})
 			buf = b
 		} else {
 			buf = append(buf, b...)

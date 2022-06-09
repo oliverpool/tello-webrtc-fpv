@@ -301,7 +301,7 @@
         }
         cmdIntervalIds[cmd] = setInterval(() => {
           sendChannel.send(cmd);
-        }, 200);
+        }, 100);
       }
 
       function stopCmd(e, cmd) {
